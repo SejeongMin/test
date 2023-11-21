@@ -1,19 +1,52 @@
 import { useRef, useState, useEffect } from 'react';
 //import { useParams } from 'react-router-dom';
 import * as StompJs from '@stomp/stompjs';
+import axios from 'axios';
 //import instance from '../../utils/axiosConfig';
 
 function CreateReadChat() {
   const [chatList, setChatList] = useState([]);
   const [chat, setChat] = useState('');
 
-  const user_id = 3;
-  const room_id = 10;
+  const user_id = 24;
+  const room_id = 21;
   const client = useRef({});
+
+  // const sse = new EventSource("http://localhost:8080/connect?userId=" + user_id, {
+  //   headers: {
+  //     Accept: "text/event-stream",
+  //   },
+  //  });
+
+  // const sseConnect = () => {
+  //   sse.addEventListener('connect', (e) => {
+  //     console.log("sse connect")
+  //     const { data: receivedConnectData } = e;
+  //     console.log('connect event data: ',receivedConnectData);  // "connected!"
+  //   });
+  // }
+
+  // const sseChat = () => {
+  //   sse.addEventListener('chat', (e) => {
+  //     const {data : receivedData} = e;
+  //     console.log(receivedData);
+  //   })
+  // }
+
+  const login = (uid, password) => {
+    axios({
+      method: 'post',
+      url: 'http://localhost:8080/login',
+      data: {
+        uid : uid,
+        password : password
+    }
+    });
+  }
 
   const connect = () => {
     client.current = new StompJs.Client({
-      brokerURL: 'ws://52.79.108.23:8080/uostime-chat',
+      brokerURL: 'ws://localhost:8080/uostime-chat',
       onConnect: () => {
         console.log('success');
         subscribe();
@@ -28,7 +61,6 @@ function CreateReadChat() {
     client.current.publish({
       destination: '/pub/chat',
       body: JSON.stringify({
-        userId: user_id,
         roomId: room_id,
         message: chat,
       }),
@@ -38,14 +70,16 @@ function CreateReadChat() {
   };
 
   const subscribe = () => {
-    client.current.subscribe('/sub/chat/' + room_id, (body) => {
+    
+    client.current.subscribe('/sub/chat', (body) => {
       const json_body = JSON.parse(body.body);
       console.log(json_body);
-      setChatList((_chat_list) => [
-        ..._chat_list, json_body
-      ]);
+      if (json_body.roomId === room_id) {
+        setChatList((_chat_list) => [
+          ..._chat_list, json_body
+        ]);
+      }
     });
-    console.log(chatList);
   };
 
   const disconnect = () => {
@@ -63,16 +97,27 @@ function CreateReadChat() {
   };
   
   useEffect(() => {
+    login();
     connect();
+    // sseConnect();
+    // sseChat();
+    // sse.addEventListener('error', function(e) {
+      // sse.close();
+    // })
 
-    return () => disconnect();
+
+    return () => {
+      disconnect();
+      // sse.close();
+    }
   }, []);
+
 
   return (
     <div>
       {
         chatList?.map((chat) => {
-          <div className={'chat-list'}>{chat.message}</div>
+          return <div className={'chat-list'}>{chat.message}</div>
         })
       }
       <form onSubmit={(event) => handleSubmit(event, chat)}>
